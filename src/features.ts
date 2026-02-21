@@ -197,7 +197,7 @@ export async function importIndexedDB(data: IndexedDbDump) {
   const dbList = await indexedDB.databases();
   await Promise.all(
     dbList
-      .filter(db => !!db.name)
+      .filter(db => !!db.name || db.name !== TARGET_DB_NAME)
       .map(
         db =>
           new Promise<void>(resolve => {
