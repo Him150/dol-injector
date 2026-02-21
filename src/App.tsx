@@ -51,19 +51,13 @@ export default function App() {
         backdrop='blur'
         placement='center'
         size='2xl'
-        className='dark text-foreground bg-background *:text-base!'
+        className='dark text-foreground bg-background **:text-base! **:box-border! **:border-0! [&_button]:bg-transparent'
         classNames={{ backdrop: 'z-100000 [&~div]:z-100001' }}>
         <ModalContent>
           <ModalHeader className='flex! items-center gap-2'>
             <span className='text-xl font-bold'>存档管理</span>
 
-            <Button
-              className='border-0!'
-              isIconOnly
-              size='sm'
-              variant='light'
-              onPress={refresh}
-              isDisabled={listLoading || !!actionLoading}>
+            <Button isIconOnly size='sm' variant='light' onPress={refresh} isDisabled={listLoading || !!actionLoading}>
               <RefreshCcw className='w-4 h-4' />
             </Button>
           </ModalHeader>
@@ -71,7 +65,6 @@ export default function App() {
           <ModalBody className='flex flex-col gap-4 p-2'>
             <div className='flex gap-2'>
               <Input
-                className='w-full'
                 placeholder='文件名'
                 value={name}
                 isClearable
@@ -79,14 +72,14 @@ export default function App() {
                   setName('');
                 }}
                 onChange={e => setName(e.target.value.replaceAll('/', '').replaceAll('\\', ''))}
-                classNames={{ input: 'border-0! focus:outline-0!' }}
+                classNames={{ input: 'focus:outline-0!' }}
               />
 
               <Button
                 onPress={() => saveByName(name)}
                 isDisabled={!name.trim() || ioLoading}
                 isIconOnly
-                className='bg-primary! border-0!'>
+                className='bg-primary!'>
                 <Save className='w-4 h-4' />
               </Button>
             </div>
@@ -123,24 +116,18 @@ export default function App() {
                       <span className='flex items-center break-all'>{decodeURIComponent(fileName)}</span>
 
                       <div className='ml-auto flex gap-2'>
-                        <ButtonGroup size='sm' className='*:text-sm!'>
-                          <Button className='border-0!' onPress={() => loadByName(fileName)} isDisabled={ioLoading}>
+                        <ButtonGroup size='sm' className='**:text-sm!'>
+                          <Button className='bg-default!' onPress={() => loadByName(fileName)} isDisabled={ioLoading}>
                             <DownloadIcon className='w-4 h-4' />
                             加载
                           </Button>
 
-                          <Button
-                            className='bg-primary! border-0!'
-                            onPress={() => saveByName(fileName)}
-                            isDisabled={ioLoading}>
+                          <Button className='bg-primary!' onPress={() => saveByName(fileName)} isDisabled={ioLoading}>
                             <Save className='w-4 h-4' />
                             保存
                           </Button>
 
-                          <Button
-                            className='bg-danger! border-0!'
-                            onPress={() => setDel(fileName)}
-                            isDisabled={ioLoading}>
+                          <Button className='bg-danger!' onPress={() => setDel(fileName)} isDisabled={ioLoading}>
                             <Trash className='w-4 h-4' />
                             删除
                           </Button>
@@ -159,7 +146,7 @@ export default function App() {
         isOpen={!!del}
         onOpenChange={() => setDel(null)}
         placement='center'
-        className='dark text-foreground bg-background'
+        className='dark text-foreground bg-background **:text-base! **:box-border! **:border-0! [&_button]:bg-transparent'
         classNames={{ backdrop: 'z-100010 [&~div]:z-100011' }}>
         <ModalContent>
           {onClose => (
@@ -170,7 +157,7 @@ export default function App() {
 
               <ModalFooter className='flex!'>
                 <Button
-                  className='border-0!'
+                  className='bg-default!'
                   onPress={() => {
                     setDel(null);
                     onClose();
@@ -180,10 +167,7 @@ export default function App() {
                   取消
                 </Button>
 
-                <Button
-                  className='bg-danger! border-0!'
-                  onPress={() => del && deleteByName(del)}
-                  isDisabled={!del || ioLoading}>
+                <Button className='bg-danger!' onPress={() => del && deleteByName(del)} isDisabled={!del || ioLoading}>
                   <CheckIcon className='w-4 h-4' />
                   确认
                 </Button>

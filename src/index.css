@@ -11,4 +11,5 @@
 html {
   background: var(--900);
   color: var(--000);
+  font-family: Arial, Helvetica, sans-serif;
 }
