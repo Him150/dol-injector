@@ -51,7 +51,7 @@ export default function App() {
         backdrop='blur'
         placement='center'
         size='2xl'
-        className='dark text-foreground bg-background'
+        className='dark text-foreground bg-background *:text-base!'
         classNames={{ backdrop: 'z-100000 [&~div]:z-100001' }}>
         <ModalContent>
           <ModalHeader className='flex! items-center gap-2'>
@@ -123,7 +123,7 @@ export default function App() {
                       <span className='flex items-center break-all'>{decodeURIComponent(fileName)}</span>
 
                       <div className='ml-auto flex gap-2'>
-                        <ButtonGroup>
+                        <ButtonGroup size='sm' className='*:text-sm!'>
                           <Button className='border-0!' onPress={() => loadByName(fileName)} isDisabled={ioLoading}>
                             <DownloadIcon className='w-4 h-4' />
                             加载
