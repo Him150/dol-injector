@@ -8,8 +8,9 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
-  Spinner,
+  Progress,
   Skeleton,
+  ToastProvider,
 } from '@heroui/react';
 import { RefreshCcw, Save, Trash, DownloadIcon, XIcon, CheckIcon } from 'lucide-react';
 import { trimPrefix, useFeatures } from './features';
@@ -25,6 +26,7 @@ export default function App() {
     setDel,
     listLoading,
     actionLoading,
+    actionProgress,
     openModal,
     refresh,
     saveByName,
@@ -33,10 +35,12 @@ export default function App() {
   } = useFeatures();
 
   const ioLoading = actionLoading === 'save' || actionLoading === 'load' || actionLoading === 'delete';
+  const progressColor = actionLoading === 'load' ? 'secondary' : actionLoading === 'delete' ? 'danger' : 'primary';
+  const progressIndeterminate = actionLoading === 'delete' || !actionProgress;
 
   return (
     <>
-      <Button className='fixed top-1 right-1 z-100000' size='sm' isIconOnly onPress={openModal}>
+      <Button className='fixed top-1 right-1 z-10000 border-0! bg-primary!' size='sm' isIconOnly onPress={openModal}>
         <Save className='w-4 h-4' />
       </Button>
 
@@ -47,16 +51,21 @@ export default function App() {
         backdrop='blur'
         placement='center'
         size='2xl'
-        classNames={{ backdrop: 'z-1000000 [&~div]:z-1000010' }}>
+        className='dark text-foreground bg-background'
+        classNames={{ backdrop: 'z-100000 [&~div]:z-100001' }}>
         <ModalContent>
-          <ModalHeader className='flex items-center gap-2'>
+          <ModalHeader className='flex! items-center gap-2'>
             <span className='text-xl font-bold'>存档管理</span>
 
-            <Button isIconOnly size='sm' variant='light' onPress={refresh} isDisabled={listLoading || !!actionLoading}>
+            <Button
+              className='border-0!'
+              isIconOnly
+              size='sm'
+              variant='light'
+              onPress={refresh}
+              isDisabled={listLoading || !!actionLoading}>
               <RefreshCcw className='w-4 h-4' />
             </Button>
-
-            {ioLoading && <Spinner size='sm' />}
           </ModalHeader>
 
           <ModalBody className='flex flex-col gap-4 p-2'>
@@ -70,21 +79,34 @@ export default function App() {
                   setName('');
                 }}
                 onChange={e => setName(e.target.value.replaceAll('/', '').replaceAll('\\', ''))}
+                classNames={{ input: 'border-0! focus:outline-0!' }}
               />
 
               <Button
                 onPress={() => saveByName(name)}
                 isDisabled={!name.trim() || ioLoading}
                 isIconOnly
-                color='primary'>
+                className='bg-primary! border-0!'>
                 <Save className='w-4 h-4' />
               </Button>
             </div>
 
+            {ioLoading && (
+              <Progress
+                aria-label='Operation progress'
+                value={actionProgress?.value}
+                maxValue={100}
+                size='sm'
+                className='w-full'
+                color={progressColor}
+                isIndeterminate={progressIndeterminate}
+              />
+            )}
+
             <Card>
               {listLoading &&
                 Array.from({ length: 4 }).map((_, idx) => (
-                  <div key={idx} className='p-3 flex gap-1'>
+                  <div key={idx} className='p-3 flex gap-2'>
                     <div className='flex items-center w-full'>
                       <Skeleton className='h-8 w-full rounded-md' />
                     </div>
@@ -97,22 +119,28 @@ export default function App() {
                   const fileName = trimPrefix(item.path);
 
                   return (
-                    <div key={fileName} className='p-3 flex gap-1 flex-wrap border-divider border-b last:border-b-0'>
-                      <span className='flex items-center'>{decodeURIComponent(fileName)}</span>
+                    <div key={fileName} className='p-3 flex gap-2 flex-wrap border-divider border-b last:border-b-0'>
+                      <span className='flex items-center break-all'>{decodeURIComponent(fileName)}</span>
 
                       <div className='ml-auto flex gap-2'>
                         <ButtonGroup>
-                          <Button onPress={() => loadByName(fileName)} isDisabled={ioLoading}>
+                          <Button className='border-0!' onPress={() => loadByName(fileName)} isDisabled={ioLoading}>
                             <DownloadIcon className='w-4 h-4' />
                             加载
                           </Button>
 
-                          <Button color='primary' onPress={() => saveByName(fileName)} isDisabled={ioLoading}>
+                          <Button
+                            className='bg-primary! border-0!'
+                            onPress={() => saveByName(fileName)}
+                            isDisabled={ioLoading}>
                             <Save className='w-4 h-4' />
                             保存
                           </Button>
 
-                          <Button color='danger' onPress={() => setDel(fileName)} isDisabled={ioLoading}>
+                          <Button
+                            className='bg-danger! border-0!'
+                            onPress={() => setDel(fileName)}
+                            isDisabled={ioLoading}>
                             <Trash className='w-4 h-4' />
                             删除
                           </Button>
@@ -131,7 +159,8 @@ export default function App() {
         isOpen={!!del}
         onOpenChange={() => setDel(null)}
         placement='center'
-        classNames={{ backdrop: 'z-1000020 [&~div]:z-1000030' }}>
+        className='dark text-foreground bg-background'
+        classNames={{ backdrop: 'z-100010 [&~div]:z-100011' }}>
         <ModalContent>
           {onClose => (
             <>
@@ -139,8 +168,9 @@ export default function App() {
 
               <ModalBody>删除 {decodeURIComponent(del ?? '')} ?</ModalBody>
 
-              <ModalFooter>
+              <ModalFooter className='flex!'>
                 <Button
+                  className='border-0!'
                   onPress={() => {
                     setDel(null);
                     onClose();
@@ -150,7 +180,10 @@ export default function App() {
                   取消
                 </Button>
 
-                <Button onPress={() => del && deleteByName(del)} color='danger' isDisabled={!del || ioLoading}>
+                <Button
+                  className='bg-danger! border-0!'
+                  onPress={() => del && deleteByName(del)}
+                  isDisabled={!del || ioLoading}>
                   <CheckIcon className='w-4 h-4' />
                   确认
                 </Button>
@@ -159,6 +192,10 @@ export default function App() {
           )}
         </ModalContent>
       </Modal>
+
+      <div className='[&>div]:z-200000'>
+        <ToastProvider placement='bottom-right'></ToastProvider>
+      </div>
     </>
   );
 }

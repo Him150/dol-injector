@@ -38,7 +38,7 @@ async function bootstrap() {
   document.body.appendChild(container);
 
   ReactDOM.createRoot(container).render(
-    <HeroUIProvider>
+    <HeroUIProvider className='dark text-foreground bg-background'>
       <App />
     </HeroUIProvider>,
   );

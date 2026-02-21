@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { addToast } from '@heroui/react';
 
 const API_BASE = 'https://p.mise.run.place/https://s3-se.zdvsn3xs.workers.dev/text';
 const PREFIX = 'dol/';
@@ -10,6 +11,7 @@ export type Item = {
   size: number;
   lastModified: number;
 };
+type ActionType = 'save' | 'load' | 'delete';
 
 type IndexMeta = {
   name: string;
@@ -60,17 +62,63 @@ export async function loadList(): Promise<Item[]> {
   return data.items || [];
 }
 
-export async function loadFile(name: string) {
+export async function loadFile(name: string, onProgress?: (percent: number) => void) {
   const res = await apiFetch(getApiUrl(name));
-  const text = await res.text();
+  const total = Number(res.headers.get('content-length') || 0);
+  const reader = res.body?.getReader();
+
+  if (!reader) {
+    const text = await res.text();
+    onProgress?.(100);
+    await restoreBackup(text);
+    return;
+  }
+
+  const chunks: Uint8Array[] = [];
+  let loaded = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    chunks.push(value);
+    loaded += value.length;
+    if (total > 0) {
+      onProgress?.(Math.min(99, Math.round((loaded / total) * 100)));
+    }
+  }
+
+  const merged = new Uint8Array(loaded);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  const text = new TextDecoder().decode(merged);
+  onProgress?.(100);
   await restoreBackup(text);
 }
 
-export async function saveFile(name: string) {
+export async function saveFile(name: string, onProgress?: (percent: number) => void) {
   const content = await createBackup();
-  await apiFetch(getApiUrl(name), {
-    method: 'PUT',
-    body: content,
+  const total = new TextEncoder().encode(content).length;
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', getApiUrl(name), true);
+    xhr.setRequestHeader('Authorization', TOKEN);
+
+    xhr.upload.onprogress = event => {
+      if (!event.lengthComputable || total <= 0) return;
+      onProgress?.(Math.min(99, Math.round((event.loaded / total) * 100)));
+    };
+    xhr.onload = () => {
+      onProgress?.(100);
+      resolve();
+    };
+    xhr.onerror = () => reject(new Error('Failed to upload backup'));
+    xhr.send(content);
   });
 }
 
@@ -249,16 +297,32 @@ export function useFeatures() {
   const [name, setName] = useState('');
   const [del, setDel] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<'save' | 'load' | 'delete' | null>(null);
+  const [actionLoading, setActionLoading] = useState<ActionType | null>(null);
+  const [actionProgress, setActionProgress] = useState<{
+    action: 'save' | 'load';
+    fileName: string;
+    value: number;
+  } | null>(null);
+
+  const showErrorToast = useCallback((action: string, error: unknown) => {
+    const detail = error instanceof Error ? error.message : String(error || 'Unknown error');
+    addToast({
+      title: `${action}失败`,
+      description: detail,
+      color: 'danger',
+    });
+  }, []);
 
   const refresh = useCallback(async () => {
     setListLoading(true);
     try {
       setItems(await loadList());
+    } catch (error) {
+      showErrorToast('刷新', error);
     } finally {
       setListLoading(false);
     }
-  }, []);
+  }, [showErrorToast]);
 
   const openModal = useCallback(async () => {
     setOpen(true);
@@ -268,26 +332,39 @@ export function useFeatures() {
   const saveByName = useCallback(
     async (fileName: string) => {
       if (!fileName.trim()) return;
+      const target = fileName.trim();
       setActionLoading('save');
+      setActionProgress({ action: 'save', fileName: target, value: 0 });
       try {
-        await saveFile(fileName.trim());
+        await saveFile(target, value => setActionProgress({ action: 'save', fileName: target, value }));
         await refresh();
+      } catch (error) {
+        showErrorToast('保存', error);
       } finally {
+        setActionProgress(null);
         setActionLoading(null);
       }
     },
-    [refresh],
+    [refresh, showErrorToast],
   );
 
-  const loadByName = useCallback(async (fileName: string) => {
-    if (!fileName.trim()) return;
-    setActionLoading('load');
-    try {
-      await loadFile(fileName.trim());
-    } finally {
-      setActionLoading(null);
-    }
-  }, []);
+  const loadByName = useCallback(
+    async (fileName: string) => {
+      if (!fileName.trim()) return;
+      const target = fileName.trim();
+      setActionLoading('load');
+      setActionProgress({ action: 'load', fileName: target, value: 0 });
+      try {
+        await loadFile(target, value => setActionProgress({ action: 'load', fileName: target, value }));
+      } catch (error) {
+        showErrorToast('加载', error);
+      } finally {
+        setActionProgress(null);
+        setActionLoading(null);
+      }
+    },
+    [showErrorToast],
+  );
 
   const deleteByName = useCallback(
     async (fileName: string) => {
@@ -296,11 +373,13 @@ export function useFeatures() {
         await deleteFile(fileName);
         setDel(null);
         await refresh();
+      } catch (error) {
+        showErrorToast('删除', error);
       } finally {
         setActionLoading(null);
       }
     },
-    [refresh],
+    [refresh, showErrorToast],
   );
 
   return {
@@ -313,6 +392,7 @@ export function useFeatures() {
     setDel,
     listLoading,
     actionLoading,
+    actionProgress,
     openModal,
     refresh,
     saveByName,
