@@ -30,8 +30,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: yarn
-          cache-dependency-path: ${{ env.WORK_FOLDER_PATH }}/yarn.lock
 
       - name: Enable Corepack
         run: corepack enable
