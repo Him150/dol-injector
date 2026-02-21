@@ -3,39 +3,55 @@ import path from 'path';
 
 console.log(process.env.WORK_FOLDER_PATH, process.env.BUILD_FOLDER_PATH);
 
-const file = fs.readFileSync(path.resolve('./dist/injector.js')).toString();
+const distFile = path.resolve('./dist/injector.js');
+const buildFolder = process.env.BUILD_FOLDER_PATH ? path.resolve('../' + process.env.BUILD_FOLDER_PATH) : 'build';
+
+if (!fs.existsSync(distFile)) {
+  console.error('Build file not found');
+  process.exit(1);
+}
+
+const injectorCode = fs.readFileSync(distFile, 'utf-8').toString();
+
+// const scriptTag = `<!-- DOL INJECTOR START -->
+// <script>${injectorCode}</script>
+// <!-- DOL INJECTOR END -->`;
+const scriptTag = `<!-- DOL INJECTOR START -->
+<script src="./injector.js"></script>
+<!-- DOL INJECTOR END -->`;
+fs.writeFileSync(path.resolve(buildFolder, './injector.js'), injectorCode);
 
 const cspMetaTest = /<meta[^\<]*?["']Content-Security-Policy["'][^\>]*?>/is;
 const gameVersionTest = '#gameVersionDisplay {';
 const insertTest = '</head>';
 
-(async () => {
-  replace('index.html');
-  replace('Degrees of Lewdity VERSION.html.mod.html');
-  replace('Degrees of Lewdity VERSION.html.mod-polyfill.html');
-})();
+replace('Degrees of Lewdity VERSION.html.mod.html');
+replace('Degrees of Lewdity VERSION.html.mod-polyfill.html');
+
 function replace(filePath) {
-  let filePathSolved = path.resolve(
-    process.env.BUILD_FOLDER_PATH ? path.resolve('../' + process.env.BUILD_FOLDER_PATH) : '',
-    filePath,
-  );
+  let filePathSolved = path.resolve(buildFolder, filePath);
+  console.log('Start replacing', filePathSolved);
+
   if (fs.existsSync(filePathSolved)) {
-    let text = fs.readFileSync(filePathSolved).toString();
-    if (cspMetaTest.test(text)) {
-      console.log('replace cspMetaTest');
-      text = text.replace(cspMetaTest, '');
+    let html = fs.readFileSync(filePathSolved, 'utf-8').toString();
+    // 如果之前已经注入，先移除旧版本
+    html = html.replace(/<!-- DOL INJECTOR START -->[\s\S]*?<!-- DOL INJECTOR END -->/, '');
+
+    if (cspMetaTest.test(html)) {
+      console.log('cspMetaTest');
+      html = html.replace(cspMetaTest, '');
     }
-    if (new RegExp(gameVersionTest).test(text)) {
-      console.log('replace gameVersionTest');
-      text = text.replace(new RegExp(gameVersionTest), gameVersionTest + 'display:none;');
+    if (new RegExp(gameVersionTest).test(html)) {
+      console.log('gameVersionTest');
+      html = html.replace(new RegExp(gameVersionTest), gameVersionTest + 'display:none;');
     }
-    if (new RegExp(insertTest).test(text)) {
-      console.log('replace insertTest');
-      text = text.replace(new RegExp(insertTest), `<script>${file}</script>\n${insertTest}`);
+    if (new RegExp(insertTest).test(html)) {
+      console.log('insertTest');
+      html = html.replace(new RegExp(insertTest), `${scriptTag}\n${insertTest}`);
     }
-    fs.writeFileSync(filePathSolved, text);
-    return;
-    fs.writeFileSync('modified' + filePath + '', text);
+    // fs.writeFileSync(filePathSolved, html);
+    // return;
+    fs.writeFileSync(path.resolve(buildFolder, 'modified' + filePath), html);
   } else {
     console.log("File didn't exist:", filePath);
   }

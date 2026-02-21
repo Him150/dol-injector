@@ -44,7 +44,7 @@ jobs:
 
       - name: Run replacer
         working-directory: ${{ env.WORK_FOLDER_PATH }}
-        run: node src/replacer
+        run: yarn run inject
 
       - name: Check BUILD_FOLDER_PATH changes
         id: check_changes

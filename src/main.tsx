@@ -1,6 +1,7 @@
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import './index.css';
+import indexStyle from './index.css?inline';
+import { HeroUIProvider } from '@heroui/react';
 
 function waitForTarget(): Promise<void> {
   return new Promise(resolve => {
@@ -28,11 +29,19 @@ async function bootstrap() {
 
   if (document.getElementById('dol-root')) return;
 
+  const style = document.createElement('style');
+  style.textContent = indexStyle;
+  document.body.appendChild(style);
+
   const container = document.createElement('div');
   container.id = 'dol-root';
   document.body.appendChild(container);
 
-  ReactDOM.createRoot(container).render(<App />);
+  ReactDOM.createRoot(container).render(
+    <HeroUIProvider>
+      <App />
+    </HeroUIProvider>,
+  );
 }
 
 bootstrap();

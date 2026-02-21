@@ -12,9 +12,14 @@ export default defineConfig({
     }),
     tailwindcss(),
   ],
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    'process.env': '{}',
+    global: 'window',
+  },
   build: {
     minify: 'esbuild',
-    cssCodeSplit: true,
+    cssCodeSplit: false,
     lib: {
       entry: 'src/main.tsx',
       name: 'DolInjector',
