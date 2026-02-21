@@ -3,7 +3,7 @@ import path from 'path';
 
 console.log(process.env.WORK_FOLDER_PATH, process.env.BUILD_FOLDER_PATH);
 
-const file = fs.readFileSync(path.resolve(process.env.WORK_FOLDER_PATH ?? '', 'dist/injector.js')).toString();
+const file = fs.readFileSync(path.resolve('./dist/injector.js')).toString();
 
 const cspMetaTest = /<meta[^\<]*?["']Content-Security-Policy["'][^\>]*?>/is;
 const gameVersionTest = '#gameVersionDisplay {';
@@ -15,7 +15,10 @@ const insertTest = '</head>';
   replace('Degrees of Lewdity VERSION.html.mod-polyfill.html');
 })();
 function replace(filePath) {
-  let filePathSolved = path.resolve(process.env.BUILD_FOLDER_PATH ?? '', filePath);
+  let filePathSolved = path.resolve(
+    process.env.BUILD_FOLDER_PATH ? path.resolve('../' + process.env.BUILD_FOLDER_PATH) : '',
+    filePath,
+  );
   if (fs.existsSync(filePathSolved)) {
     let text = fs.readFileSync(filePathSolved).toString();
     if (cspMetaTest.test(text)) {
