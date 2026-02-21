@@ -49,9 +49,11 @@ function replace(filePath) {
       console.log('insertTest');
       html = html.replace(new RegExp(insertTest), `${scriptTag}\n${insertTest}`);
     }
-    // fs.writeFileSync(filePathSolved, html);
-    // return;
-    fs.writeFileSync(path.resolve(buildFolder, 'modified' + filePath), html);
+    if (process.env.BUILD_FOLDER_PATH) {
+      fs.writeFileSync(filePathSolved, html);
+    } else {
+      fs.writeFileSync(path.resolve(buildFolder, 'modified' + filePath), html);
+    }
   } else {
     console.log("File didn't exist:", filePath);
   }
