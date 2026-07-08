@@ -1,20 +1,8 @@
 import { useCallback, useState } from "react";
 import { addToast } from "@heroui/react";
 
-const API_BASE =
-  "https://p.mise.run.place/https://s3-storage.zdvsn3xs.workers.dev";
-const BUCKET = "degrees_of_lewdity";
-const TOKEN =
-  "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJidWNrZXQiOiJkZWdyZWVzX29mX2xld2RpdHkifQ.0xzG_qxnAkev0mv2m1G5RB_BNqobhWayS-7U9ICUHKg";
 const TARGET_DB_NAME = "degrees-of-lewdity";
 
-export type Item = {
-  key: string;
-  size: number;
-  contentType: string;
-  etag: string;
-  lastModified: number;
-};
 type ActionType = "save" | "load" | "delete";
 
 type IndexMeta = {
@@ -42,26 +30,44 @@ type BackupPayload = {
   indexedDB: IndexedDbDump;
 };
 
+const API_BASE = "https://s3.mise.dpdns.org/degrees_of_lewdity";
+const TOKEN =
+  "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJidWNrZXQiOiJkZWdyZWVzX29mX2xld2RpdHkifQ.0xzG_qxnAkev0mv2m1G5RB_BNqobhWayS-7U9ICUHKg";
+
+export type Item = {
+  key: string;
+  size: number;
+  contentType: string;
+  etag: string;
+  lastModified: number;
+};
+
 type ListApiResponse = {
   items?: Item[];
 };
 
-function getApiUrl() {
-  return `${API_BASE}/${BUCKET}/`;
+function getApiUrl(name?: string) {
+  return name
+    ? `${API_BASE}/${encodeURIComponent(name)}`
+    : `${API_BASE}/?list=1`;
 }
 
-export async function apiFetch(url: string, opt: RequestInit = {}) {
+export async function apiFetch(
+  url: string,
+  opt: RequestInit = {},
+  needAuthorization = true,
+) {
   return fetch(url, {
     ...opt,
     headers: {
-      Authorization: TOKEN,
+      ...(needAuthorization ? { Authorization: TOKEN } : {}),
       ...(opt.headers || {}),
     },
   });
 }
 
 export async function loadList(): Promise<Item[]> {
-  const res = await apiFetch(getApiUrl() + `?list=1`);
+  const res = await apiFetch(getApiUrl());
   const data = (await res.json()) as ListApiResponse;
   return data.items || [];
 }
@@ -70,15 +76,14 @@ export async function loadFile(
   name: string,
   onProgress?: (percent: number) => void,
 ) {
-  const res = await apiFetch(getApiUrl() + name);
+  const res = await apiFetch(getApiUrl(name), undefined, false);
   const total = Number(res.headers.get("content-length") || 0);
   const reader = res.body?.getReader();
 
   if (!reader) {
     const text = await res.text();
     onProgress?.(100);
-    await restoreBackup(text);
-    return;
+    return text;
   }
 
   const chunks: Uint8Array[] = [];
@@ -104,19 +109,19 @@ export async function loadFile(
 
   const text = new TextDecoder().decode(merged);
   onProgress?.(100);
-  await restoreBackup(text);
+  return text;
 }
 
 export async function saveFile(
   name: string,
+  content: string,
   onProgress?: (percent: number) => void,
 ) {
-  const content = await createBackup();
   const total = new TextEncoder().encode(content).length;
 
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("PUT", getApiUrl() + name, true);
+    xhr.open("PUT", getApiUrl(name), true);
     xhr.setRequestHeader("Authorization", TOKEN);
 
     xhr.upload.onprogress = event => {
@@ -133,9 +138,7 @@ export async function saveFile(
 }
 
 export async function deleteFile(name: string) {
-  await apiFetch(getApiUrl() + name, {
-    method: "DELETE",
-  });
+  await apiFetch(getApiUrl(name), { method: "DELETE" });
 }
 
 export async function exportIndexedDB(): Promise<IndexedDbDump> {
@@ -355,7 +358,8 @@ export function useFeatures() {
       setActionLoading("save");
       setActionProgress({ action: "save", fileName: target, value: 0 });
       try {
-        await saveFile(target, value =>
+        const content = await createBackup();
+        await saveFile(target, content, value =>
           setActionProgress({ action: "save", fileName: target, value }),
         );
         await refresh();
@@ -376,9 +380,10 @@ export function useFeatures() {
       setActionLoading("load");
       setActionProgress({ action: "load", fileName: target, value: 0 });
       try {
-        await loadFile(target, value =>
+        let text = await loadFile(target, value =>
           setActionProgress({ action: "load", fileName: target, value }),
         );
+        await restoreBackup(text);
       } catch (error) {
         showErrorToast("加载", error);
       } finally {
