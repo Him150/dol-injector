@@ -109,7 +109,7 @@ export default function App() {
 
               {!listLoading &&
                 items.map(item => {
-                  const fileName = trimPrefix(item.path);
+                  const fileName = trimPrefix(item.key);
 
                   return (
                     <div key={fileName} className='p-3 flex gap-2 flex-wrap border-divider border-b last:border-b-0'>

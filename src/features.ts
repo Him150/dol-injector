@@ -1,17 +1,21 @@
-import { useCallback, useState } from 'react';
-import { addToast } from '@heroui/react';
+import { useCallback, useState } from "react";
+import { addToast } from "@heroui/react";
 
-const API_BASE = 'https://p.mise.run.place/https://s3-se.zdvsn3xs.workers.dev/text';
-const PREFIX = 'dol/';
-const TOKEN = 'Bearer bf283960-4826-49ac-b6ed-a8b72fbfd3c0';
-const TARGET_DB_NAME = 'degrees-of-lewdity';
+const API_BASE =
+  "https://p.mise.run.place/https://s3-storage.zdvsn3xs.workers.dev";
+const BUCKET = "degrees_of_lewdity";
+const TOKEN =
+  "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJidWNrZXQiOiJkZWdyZWVzX29mX2xld2RpdHkifQ.0xzG_qxnAkev0mv2m1G5RB_BNqobhWayS-7U9ICUHKg";
+const TARGET_DB_NAME = "degrees-of-lewdity";
 
 export type Item = {
-  path: string;
+  key: string;
   size: number;
+  contentType: string;
+  etag: string;
   lastModified: number;
 };
-type ActionType = 'save' | 'load' | 'delete';
+type ActionType = "save" | "load" | "delete";
 
 type IndexMeta = {
   name: string;
@@ -42,8 +46,8 @@ type ListApiResponse = {
   items?: Item[];
 };
 
-function getApiUrl(name?: string) {
-  return name ? `${API_BASE}/${PREFIX}${name}` : `${API_BASE}/?list=1&prefix=${PREFIX}`;
+function getApiUrl() {
+  return `${API_BASE}/${BUCKET}/`;
 }
 
 export async function apiFetch(url: string, opt: RequestInit = {}) {
@@ -57,14 +61,17 @@ export async function apiFetch(url: string, opt: RequestInit = {}) {
 }
 
 export async function loadList(): Promise<Item[]> {
-  const res = await apiFetch(getApiUrl());
+  const res = await apiFetch(getApiUrl() + `?list=1`);
   const data = (await res.json()) as ListApiResponse;
   return data.items || [];
 }
 
-export async function loadFile(name: string, onProgress?: (percent: number) => void) {
-  const res = await apiFetch(getApiUrl(name));
-  const total = Number(res.headers.get('content-length') || 0);
+export async function loadFile(
+  name: string,
+  onProgress?: (percent: number) => void,
+) {
+  const res = await apiFetch(getApiUrl() + name);
+  const total = Number(res.headers.get("content-length") || 0);
   const reader = res.body?.getReader();
 
   if (!reader) {
@@ -100,14 +107,17 @@ export async function loadFile(name: string, onProgress?: (percent: number) => v
   await restoreBackup(text);
 }
 
-export async function saveFile(name: string, onProgress?: (percent: number) => void) {
+export async function saveFile(
+  name: string,
+  onProgress?: (percent: number) => void,
+) {
   const content = await createBackup();
   const total = new TextEncoder().encode(content).length;
 
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', getApiUrl(name), true);
-    xhr.setRequestHeader('Authorization', TOKEN);
+    xhr.open("PUT", getApiUrl() + name, true);
+    xhr.setRequestHeader("Authorization", TOKEN);
 
     xhr.upload.onprogress = event => {
       if (!event.lengthComputable || total <= 0) return;
@@ -117,14 +127,14 @@ export async function saveFile(name: string, onProgress?: (percent: number) => v
       onProgress?.(100);
       resolve();
     };
-    xhr.onerror = () => reject(new Error('Failed to upload backup'));
+    xhr.onerror = () => reject(new Error("Failed to upload backup"));
     xhr.send(content);
   });
 }
 
 export async function deleteFile(name: string) {
-  await apiFetch(getApiUrl(name), {
-    method: 'DELETE',
+  await apiFetch(getApiUrl() + name, {
+    method: "DELETE",
   });
 }
 
@@ -147,7 +157,10 @@ export async function exportIndexedDB(): Promise<IndexedDbDump> {
           const db = req.result;
           const data: DbDump = { version: db.version, stores: {} };
 
-          const tx = db.transaction(Array.from(db.objectStoreNames), 'readonly');
+          const tx = db.transaction(
+            Array.from(db.objectStoreNames),
+            "readonly",
+          );
 
           await Promise.all(
             Array.from(db.objectStoreNames).map(
@@ -161,16 +174,19 @@ export async function exportIndexedDB(): Promise<IndexedDbDump> {
                     data.stores[storeName] = {
                       keyPath: store.keyPath as string | string[] | null,
                       autoIncrement: store.autoIncrement,
-                      indexes: Array.from(store.indexNames).reduce<IndexMeta[]>((acc, indexName) => {
-                        const idx = store.index(indexName);
-                        if (idx.keyPath == null) return acc;
-                        acc.push({
-                          name: indexName,
-                          keyPath: idx.keyPath as string | string[],
-                          unique: idx.unique,
-                        });
-                        return acc;
-                      }, []),
+                      indexes: Array.from(store.indexNames).reduce<IndexMeta[]>(
+                        (acc, indexName) => {
+                          const idx = store.index(indexName);
+                          if (idx.keyPath == null) return acc;
+                          acc.push({
+                            name: indexName,
+                            keyPath: idx.keyPath as string | string[],
+                            unique: idx.unique,
+                          });
+                          return acc;
+                        },
+                        [],
+                      ),
                       records: getAllReq.result as unknown[],
                     };
                     res();
@@ -237,7 +253,7 @@ export async function importIndexedDB(data: IndexedDbDump) {
           return;
         }
 
-        const tx = db.transaction(storeNames, 'readwrite');
+        const tx = db.transaction(storeNames, "readwrite");
 
         for (const [storeName, storeData] of Object.entries(dbData.stores)) {
           const store = tx.objectStore(storeName);
@@ -278,7 +294,9 @@ export async function restoreBackup(text: string) {
   const backup = JSON.parse(text) as Partial<BackupPayload>;
 
   localStorage.clear();
-  Object.entries(backup.localStorage || {}).forEach(([k, v]) => localStorage.setItem(k, v ?? ''));
+  Object.entries(backup.localStorage || {}).forEach(([k, v]) =>
+    localStorage.setItem(k, v ?? ""),
+  );
 
   if (backup.indexedDB) {
     await importIndexedDB(backup.indexedDB);
@@ -288,28 +306,29 @@ export async function restoreBackup(text: string) {
 }
 
 export function trimPrefix(path: string) {
-  return path.replace(PREFIX, '');
+  return path;
 }
 
 export function useFeatures() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const [del, setDel] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<ActionType | null>(null);
   const [actionProgress, setActionProgress] = useState<{
-    action: 'save' | 'load';
+    action: "save" | "load";
     fileName: string;
     value: number;
   } | null>(null);
 
   const showErrorToast = useCallback((action: string, error: unknown) => {
-    const detail = error instanceof Error ? error.message : String(error || 'Unknown error');
+    const detail =
+      error instanceof Error ? error.message : String(error || "Unknown error");
     addToast({
       title: `${action}失败`,
       description: detail,
-      color: 'danger',
+      color: "danger",
     });
   }, []);
 
@@ -318,7 +337,7 @@ export function useFeatures() {
     try {
       setItems(await loadList());
     } catch (error) {
-      showErrorToast('刷新', error);
+      showErrorToast("刷新", error);
     } finally {
       setListLoading(false);
     }
@@ -333,13 +352,15 @@ export function useFeatures() {
     async (fileName: string) => {
       if (!fileName.trim()) return;
       const target = fileName.trim();
-      setActionLoading('save');
-      setActionProgress({ action: 'save', fileName: target, value: 0 });
+      setActionLoading("save");
+      setActionProgress({ action: "save", fileName: target, value: 0 });
       try {
-        await saveFile(target, value => setActionProgress({ action: 'save', fileName: target, value }));
+        await saveFile(target, value =>
+          setActionProgress({ action: "save", fileName: target, value }),
+        );
         await refresh();
       } catch (error) {
-        showErrorToast('保存', error);
+        showErrorToast("保存", error);
       } finally {
         setActionProgress(null);
         setActionLoading(null);
@@ -352,12 +373,14 @@ export function useFeatures() {
     async (fileName: string) => {
       if (!fileName.trim()) return;
       const target = fileName.trim();
-      setActionLoading('load');
-      setActionProgress({ action: 'load', fileName: target, value: 0 });
+      setActionLoading("load");
+      setActionProgress({ action: "load", fileName: target, value: 0 });
       try {
-        await loadFile(target, value => setActionProgress({ action: 'load', fileName: target, value }));
+        await loadFile(target, value =>
+          setActionProgress({ action: "load", fileName: target, value }),
+        );
       } catch (error) {
-        showErrorToast('加载', error);
+        showErrorToast("加载", error);
       } finally {
         setActionProgress(null);
         setActionLoading(null);
@@ -368,13 +391,13 @@ export function useFeatures() {
 
   const deleteByName = useCallback(
     async (fileName: string) => {
-      setActionLoading('delete');
+      setActionLoading("delete");
       try {
         await deleteFile(fileName);
         setDel(null);
         await refresh();
       } catch (error) {
-        showErrorToast('删除', error);
+        showErrorToast("删除", error);
       } finally {
         setActionLoading(null);
       }
